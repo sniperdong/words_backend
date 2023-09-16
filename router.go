@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"words_backend/biz"
 
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/app/server"
@@ -17,14 +18,17 @@ func RegisterRoute(h *server.Hertz) {
 	api := h.Group("/api")
 	{
 		admin := api.Group("/admin")
-		admin.GET("", func(ctx context.Context, c *app.RequestContext) {
-			c.String(consts.StatusOK, "admin")
-		})
+		admin.GET("", biz.GetWords)
 
 		words := api.Group("/words")
-		words.GET("", func(c context.Context, ctx *app.RequestContext) {
-			ctx.String(consts.StatusOK, "words")
-		})
+		words.POST("", biz.AddWords)
+		words.GET("", biz.GetWords)
+
+		db := api.Group("/db")
+		{
+			db.GET("", biz.GetDB)
+			db.POST("", biz.EditDB)
+		}
 	}
 
 }
