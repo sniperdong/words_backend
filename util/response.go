@@ -2,6 +2,7 @@ package util
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
@@ -21,5 +22,6 @@ func SuccessResponse(ctx context.Context, c *app.RequestContext, data interface{
 }
 
 func FailResponse(ctx context.Context, c *app.RequestContext, err error) {
+	fmt.Println(err)
 	c.String(consts.StatusOK, JsonEncode(map[string]interface{}{"Status": StatusFail, "Msg": err.Error()}))
 }
