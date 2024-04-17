@@ -40,9 +40,14 @@ func RegisterRoute(h *server.Hertz) {
 			{
 				m.GET("/list", newsBiz.GetAll)
 				m.GET("/total", newsBiz.Total)
-				m.PUT("/v/up/publish", newsBiz.UpPublish)
-				m.PUT("/v/up/content", newsBiz.UpContent)
-				m.PUT("/v/up/memo", newsBiz.UpMemo)
+				m.PUT("/v", newsBiz.UpVideo)
+				m.GET("/v/like", newsBiz.LikeVideo)
+				m.GET("/v/star", newsBiz.StarVideo)
+				m.POST("/v/log", newsBiz.AddVideoLog)
+				m.GET("/v/log", newsBiz.GetVideoLog)
+				m.GET("/v/log/slice", newsBiz.GetVideoLogSlice)
+				m.GET("/v/log/like", newsBiz.LikeVideoReply)
+				m.GET("/v/log/star", newsBiz.StarVideoReply)
 			}
 		}
 	}

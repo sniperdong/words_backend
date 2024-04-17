@@ -14,9 +14,12 @@ type PublishedListRequest struct {
 	PageSize int    `json:"page_size" query:"page_size"`
 }
 type VideoSimple struct {
-	Name string `json:"name"`
-	Memo string `json:"memo"`
-	URL  string `json:"url"`
+	ID    uint   `json:"id"`
+	Name  string `json:"name"`
+	Memo  string `json:"memo"`
+	URL   string `json:"url"`
+	Likes int    `json:"likes"`
+	Stars int    `json:"stars"`
 }
 
 func PublishedList(ctx context.Context, c *app.RequestContext) {
@@ -35,9 +38,12 @@ func PublishedList(ctx context.Context, c *app.RequestContext) {
 	res := make([]*VideoSimple, len(videos))
 	for i := range videos {
 		res[i] = &VideoSimple{
-			Name: videos[i].Name,
-			Memo: videos[i].Memo,
-			URL:  videos[i].Path,
+			ID:    videos[i].ID,
+			Name:  videos[i].Name,
+			Memo:  videos[i].Memo,
+			URL:   videos[i].Path,
+			Likes: videos[i].Likes,
+			Stars: videos[i].Stars,
 		}
 	}
 	util.SuccessResponse(ctx, c, res)

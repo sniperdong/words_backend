@@ -2,7 +2,9 @@ package news
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"time"
 	"words_backend/dao"
 	"words_backend/dao/model"
 	"words_backend/util"
@@ -23,6 +25,8 @@ type VideoDetail struct {
 	Content string `json:"content"`
 	Path    string `json:"path"`
 	Publish bool   `json:"publish"`
+	Likes   int    `json:"likes"`
+	Stars   int    `json:"stars"`
 }
 
 func GetAll(ctx context.Context, c *app.RequestContext) {
@@ -46,6 +50,8 @@ func GetAll(ctx context.Context, c *app.RequestContext) {
 			Content: videos[i].Content,
 			Path:    videos[i].Path,
 			Publish: videos[i].Publish == dao.PublishVideoYes,
+			Likes:   videos[i].Likes,
+			Stars:   videos[i].Stars,
 		}
 	}
 	util.SuccessResponse(ctx, c, res)
@@ -117,68 +123,186 @@ func BatchAddVideo(ctx context.Context, c *app.RequestContext) {
 	util.SuccessResponse(ctx, c, nil)
 }
 
-type UpVideo struct {
+type UpVideoReq struct {
 	Id      uint    `json:"id"`
 	Publish *bool   `json:"publish"`
 	Memo    *string `json:"memo"`
 	Content *string `json:"content"`
+	Name    *string `json:"name"`
 }
 
-func UpPublish(ctx context.Context, c *app.RequestContext) {
-	var req UpVideo
+func UpVideo(ctx context.Context, c *app.RequestContext) {
+	var req UpVideoReq
 	if err := c.BindAndValidate(&req); err != nil {
 		util.FailResponse(ctx, c, err)
 		return
 	}
-	if req.Publish == nil {
-		util.FailResponse(ctx, c, fmt.Errorf("publish of %d is not found", req.Id))
-		return
+	var publish *int
+	if req.Publish != nil {
+		reqPublish := dao.PublishVideoYes
+		if !*req.Publish {
+			reqPublish = dao.PublishVideoNo
+		}
+		publish = &reqPublish
 	}
-
-	publish := dao.PublishVideoYes
-	if !*req.Publish {
-		publish = dao.PublishVideoNo
-	}
-	err := dao.UpPublish(ctx, req.Id, publish)
+	err := dao.UpVideo(ctx, req.Id, publish, req.Name, req.Memo, req.Content)
 	if err != nil {
 		util.FailResponse(ctx, c, err)
 		return
 	}
 	util.SuccessResponse(ctx, c, nil)
 }
-func UpMemo(ctx context.Context, c *app.RequestContext) {
-	var req UpVideo
+
+type AddVideoLogReq struct {
+	VideoId uint   `json:"id"`
+	Content string `json:"content"`
+}
+
+func AddVideoLog(ctx context.Context, c *app.RequestContext) {
+	var req AddVideoLogReq
 	if err := c.BindAndValidate(&req); err != nil {
 		util.FailResponse(ctx, c, err)
 		return
 	}
-	if req.Memo == nil {
-		util.FailResponse(ctx, c, fmt.Errorf("memo of %d is not found", req.Id))
+	if len(req.Content) == 0 {
+		util.FailResponse(ctx, c, errors.New("empty content"))
 		return
 	}
-
-	err := dao.UpMemo(ctx, req.Id, *req.Memo)
-	if err != nil {
+	if _, err := dao.AddVideosLog(ctx, &model.VideoLogs{VideoID: req.VideoId, Content: req.Content}); err != nil {
 		util.FailResponse(ctx, c, err)
 		return
 	}
+
 	util.SuccessResponse(ctx, c, nil)
 }
-func UpContent(ctx context.Context, c *app.RequestContext) {
-	var req UpVideo
+
+type GetVideoLogReq struct {
+	VideoId uint `json:"id" query:"id"`
+}
+type VideoLog struct {
+	ID        uint      `json:"id"`
+	Content   string    `json:"content"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+	Likes     int       `json:"likes"`
+	Stars     int       `json:"stars"`
+}
+type GetVideoLogRes struct {
+	Video *VideoDetail `json:"video"`
+	Logs  []*VideoLog  `json:"logs"`
+}
+
+func GetVideoLog(ctx context.Context, c *app.RequestContext) {
+	var req GetVideoLogReq
 	if err := c.BindAndValidate(&req); err != nil {
 		util.FailResponse(ctx, c, err)
 		return
 	}
-	if req.Content == nil {
-		util.FailResponse(ctx, c, fmt.Errorf("content of %d is not found", req.Id))
-		return
-	}
-
-	err := dao.UpContent(ctx, req.Id, *req.Content)
+	video, err := dao.GetVideo(ctx, req.VideoId)
 	if err != nil {
 		util.FailResponse(ctx, c, err)
 		return
 	}
+	var res GetVideoLogRes
+	res.Video = &VideoDetail{
+		ID:      video.ID,
+		Name:    video.Name,
+		Memo:    video.Memo,
+		Content: video.Content,
+		Path:    video.Path,
+		Likes:   video.Likes,
+		Stars:   video.Stars,
+	}
+	logs, err := dao.GetVideosLogs(ctx, req.VideoId)
+	if err != nil {
+		util.FailResponse(ctx, c, err)
+		return
+	}
+	res.Logs = make([]*VideoLog, len(logs))
+	for i := range logs {
+		res.Logs[i] = &VideoLog{
+			ID:        logs[i].ID,
+			Content:   logs[i].Content,
+			CreatedAt: logs[i].CreatedAt,
+			UpdatedAt: logs[i].UpdatedAt,
+			Likes:     logs[i].Likes,
+			Stars:     logs[i].Stars,
+		}
+	}
+	util.SuccessResponse(ctx, c, res)
+}
+
+func GetVideoLogSlice(ctx context.Context, c *app.RequestContext) {
+	var req struct {
+		VideoID   uint `query:"video_id"`
+		LastLogID uint `query:"last_log_id"`
+	}
+	if err := c.BindAndValidate(&req); err != nil {
+		util.FailResponse(ctx, c, err)
+		return
+	}
+
+	logs, err := dao.GetVideosNewLogs(ctx, req.VideoID, req.LastLogID)
+	if err != nil {
+		util.FailResponse(ctx, c, err)
+		return
+	}
+	res := make([]*VideoLog, len(logs))
+	for i := range logs {
+		res[i] = &VideoLog{
+			ID:        logs[i].ID,
+			Content:   logs[i].Content,
+			CreatedAt: logs[i].CreatedAt,
+			UpdatedAt: logs[i].UpdatedAt,
+			Likes:     logs[i].Likes,
+			Stars:     logs[i].Stars,
+		}
+	}
+	util.SuccessResponse(ctx, c, res)
+}
+
+func LikeVideo(ctx context.Context, c *app.RequestContext) {
+	var req struct {
+		ID uint `query:"id"`
+	}
+	if err := c.BindAndValidate(&req); err != nil {
+		util.FailResponse(ctx, c, err)
+		return
+	}
+	dao.AddVideoLikes(ctx, req.ID)
+	util.SuccessResponse(ctx, c, nil)
+}
+func StarVideo(ctx context.Context, c *app.RequestContext) {
+	var req struct {
+		ID uint `query:"id"`
+	}
+	if err := c.BindAndValidate(&req); err != nil {
+		util.FailResponse(ctx, c, err)
+		return
+	}
+	dao.AddVideoStars(ctx, req.ID)
+	util.SuccessResponse(ctx, c, nil)
+}
+
+func LikeVideoReply(ctx context.Context, c *app.RequestContext) {
+	var req struct {
+		ID uint `query:"id"`
+	}
+	if err := c.BindAndValidate(&req); err != nil {
+		util.FailResponse(ctx, c, err)
+		return
+	}
+	dao.AddVideoLogsLikes(ctx, req.ID)
+	util.SuccessResponse(ctx, c, nil)
+}
+func StarVideoReply(ctx context.Context, c *app.RequestContext) {
+	var req struct {
+		ID uint `query:"id"`
+	}
+	if err := c.BindAndValidate(&req); err != nil {
+		util.FailResponse(ctx, c, err)
+		return
+	}
+	dao.AddVideoLosgStars(ctx, req.ID)
 	util.SuccessResponse(ctx, c, nil)
 }

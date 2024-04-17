@@ -9,6 +9,8 @@ type Videos struct {
 	Memo      string    `gorm:"memo"`
 	Content   string    `gorm:"content"`
 	Publish   int       `gorm:"publish"`
+	Likes     int       `gorm:"likes"`
+	Stars     int       `gorm:"stars"`
 	CreatedAt time.Time `gorm:"create_at;<-:false"`
 	UpdatedAt time.Time `gorm:"create_at;<-:false"`
 	// DeletedAt gorm.DeletedAt `gorm:"index"`
